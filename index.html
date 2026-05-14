@@ -1,441 +1,164 @@
 <!DOCTYPE html>
-<html lang="pt-br">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>Tradutor Uber - Conversa Contínua</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background: linear-gradient(135deg, #0a0a0c 0%, #1a1a2e 100%);
-            min-height: 100vh;
-            color: white;
-        }
-        
-        .container {
-            max-width: 600px;
-            margin: 0 auto;
-            padding: 20px;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-        }
-        
-        .header {
-            text-align: center;
-            padding: 20px 0;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-            margin-bottom: 20px;
-        }
-        
-        h1 {
-            font-size: 1.8rem;
-            background: linear-gradient(135deg, #ffd966, #ffb347);
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
-        }
-        
-        .sub {
-            font-size: 12px;
-            opacity: 0.6;
-            margin-top: 5px;
-        }
-        
-        .status-card {
-            background: rgba(28, 28, 30, 0.9);
-            border-radius: 20px;
-            padding: 16px;
-            margin-bottom: 20px;
-            text-align: center;
-            backdrop-filter: blur(10px);
-        }
-        
-        .status-dot {
-            display: inline-block;
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            background: #444;
-            margin-right: 8px;
-        }
-        
-        .status-dot.connected { background: #34c759; box-shadow: 0 0 5px #34c759; }
-        .status-dot.listening { background: #ff3b30; animation: pulse 1s infinite; }
-        .status-dot.processing { background: #ff9500; animation: pulse 0.5s infinite; }
-        
-        @keyframes pulse {
-            0% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.5; transform: scale(1.2); }
-            100% { opacity: 1; transform: scale(1); }
-        }
-        
-        .chat-area {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            margin-bottom: 20px;
-            max-height: 50vh;
-            overflow-y: auto;
-            padding: 5px;
-        }
-        
-        .message-bubble {
-            background: rgba(255,255,255,0.1);
-            border-radius: 20px;
-            padding: 12px 16px;
-            max-width: 85%;
-        }
-        
-        .message-bubble.sent {
-            background: #007aff;
-            align-self: flex-end;
-        }
-        
-        .message-bubble.received {
-            background: rgba(255,255,255,0.15);
-            align-self: flex-start;
-        }
-        
-        .message-text {
-            font-size: 15px;
-            margin-bottom: 4px;
-            word-break: break-word;
-        }
-        
-        .message-lang {
-            font-size: 10px;
-            opacity: 0.6;
-        }
-        
-        .mic-area {
-            text-align: center;
-            padding: 20px 0;
-        }
-        
-        .mic-btn {
-            width: 80px;
-            height: 80px;
-            border-radius: 50%;
-            background: #007aff;
-            border: none;
-            cursor: pointer;
-            margin: 0 auto;
-            display: block;
-            transition: all 0.3s;
-            box-shadow: 0 0 20px rgba(0,122,255,0.4);
-        }
-        
-        .mic-btn.active {
-            background: #ff3b30;
-            transform: scale(1.05);
-            animation: pulse 1.5s infinite;
-        }
-        
-        .hint {
-            text-align: center;
-            font-size: 12px;
-            opacity: 0.6;
-            margin-top: 12px;
-        }
-        
-        .connection-info {
-            text-align: center;
-            font-size: 10px;
-            margin-top: 16px;
-            opacity: 0.4;
-        }
-        
-        .mode-badge {
-            display: inline-block;
-            background: rgba(52, 199, 89, 0.2);
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 11px;
-            margin-top: 8px;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>🎤 Uber Tradutor</h1>
-            <div class="sub">Conversa contínua · Motorista ↔ Passageiro</div>
-            <div class="mode-badge">🔄 Detecção automática de idioma</div>
-        </div>
-        
-        <div class="status-card">
-            <div>
-                <span id="statusDot" class="status-dot"></span>
-                <span id="statusText">Conectando...</span>
-            </div>
-            <div id="lastLang" style="font-size: 11px; margin-top: 8px;"></div>
-        </div>
-        
-        <div class="chat-area" id="chatArea">
-            <div class="message-bubble received">
-                <div class="message-text">🇧🇷 Fale português → traduz para inglês (passageiro ouve)</div>
-                <div class="message-lang">Sistema</div>
-            </div>
-            <div class="message-bubble received">
-                <div class="message-text">🇺🇸 Se o passageiro falar inglês → traduz para português (você ouve)</div>
-                <div class="message-lang">Sistema</div>
-            </div>
-        </div>
-        
-        <div class="mic-area">
-            <button id="micBtn" class="mic-btn">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
-                    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
-                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-                    <line x1="12" x2="12" y1="19" y2="22"/>
-                </svg>
-            </button>
-            <div id="hint" class="hint">🔴 Segure para falar</div>
-        </div>
-        
-        <div class="connection-info" id="connInfo"></div>
-    </div>
+<html lang="pt-BR">
 
-    <script>
-        // ============================================
-        // CONFIGURAÇÃO
-        // ============================================
-        // ATENÇÃO: Substitua pela URL do seu backend no Render.com
-        const BACKEND_URL = "https://seu-backend.onrender.com";
-        
-        // Elementos DOM
-        const micBtn = document.getElementById('micBtn');
-        const hintEl = document.getElementById('hint');
-        const statusDot = document.getElementById('statusDot');
-        const statusText = document.getElementById('statusText');
-        const lastLangSpan = document.getElementById('lastLang');
-        const chatArea = document.getElementById('chatArea');
-        const connInfo = document.getElementById('connInfo');
-        
-        // Estado
-        let ws = null;
-        let isRecording = false;
-        let mediaRecorder = null;
-        let audioChunks = [];
-        let isProcessing = false;
-        
-        // ============================================
-        // WEB SOCKET CONNECTION
-        // ============================================
-        function connectWebSocket() {
-            const wsUrl = BACKEND_URL.replace('https://', 'wss://').replace('http://', 'ws://') + '/ws';
-            ws = new WebSocket(wsUrl);
-            
-            ws.onopen = () => {
-                console.log("WebSocket conectado");
-                statusDot.className = "status-dot connected";
-                statusText.textContent = "Conectado. Pronto para traduzir!";
-                connInfo.textContent = "✅ Conectado ao servidor";
-                addSystemMessage("✅ Conectado! Segure o microfone e fale (português ou inglês)");
-            };
-            
-            ws.onmessage = (event) => {
-                const data = JSON.parse(event.data);
-                console.log("Resposta:", data);
-                
-                if (data.type === "response") {
-                    isProcessing = false;
-                    statusDot.className = "status-dot connected";
-                    statusText.textContent = "Conectado. Pronto para traduzir!";
-                    
-                    // Mostrar na tela
-                    const sourceIcon = data.source_lang === 'pt' ? '🇧🇷' : '🇺🇸';
-                    const targetIcon = data.target_lang === 'pt' ? '🇧🇷' : '🇺🇸';
-                    
-                    addMessage(data.original, sourceIcon, data.source_lang.toUpperCase(), 'sent');
-                    addMessage(data.translated, targetIcon, data.target_lang.toUpperCase(), 'received');
-                    
-                    lastLangSpan.innerHTML = `📢 Último: ${data.source_lang.toUpperCase()} → ${data.target_lang.toUpperCase()}`;
-                    
-                    // Tocar áudio da tradução
-                    if (data.audio) {
-                        const audio = new Audio("data:audio/mp3;base64," + data.audio);
-                        audio.play().catch(e => console.error("Erro ao tocar áudio:", e));
-                    }
-                }
-            };
-            
-            ws.onclose = () => {
-                console.log("WebSocket desconectado");
-                statusDot.className = "status-dot";
-                statusText.textContent = "Desconectado. Reconectando...";
-                connInfo.textContent = "⚠️ Reconectando...";
-                addSystemMessage("⚠️ Conexão perdida. Reconectando...");
-                setTimeout(connectWebSocket, 3000);
-            };
-            
-            ws.onerror = (error) => {
-                console.error("WebSocket error:", error);
-                statusText.textContent = "Erro de conexão";
-            };
-        }
-        
-        // ============================================
-        // FUNÇÕES DE UI
-        // ============================================
-        function addMessage(text, icon, langName, type) {
-            const messageDiv = document.createElement('div');
-            messageDiv.className = `message-bubble ${type}`;
-            
-            const displayText = text.length > 200 ? text.substring(0, 200) + '...' : text;
-            
-            messageDiv.innerHTML = `
-                <div class="message-text">${icon} ${escapeHtml(displayText)}</div>
-                <div class="message-lang">${langName}</div>
-            `;
-            
-            chatArea.appendChild(messageDiv);
-            messageDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        }
-        
-        function addSystemMessage(text) {
-            const messageDiv = document.createElement('div');
-            messageDiv.className = 'message-bubble received';
-            messageDiv.innerHTML = `
-                <div class="message-text">ℹ️ ${escapeHtml(text)}</div>
-                <div class="message-lang">Sistema</div>
-            `;
-            chatArea.appendChild(messageDiv);
-            messageDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        }
-        
-        function escapeHtml(str) {
-            if (!str) return '';
-            return str.replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m]));
-        }
-        
-        // ============================================
-        // GRAVAÇÃO DE ÁUDIO
-        // ============================================
-        let mediaStream = null;
-        
-        async function startRecording() {
-            if (isProcessing) {
-                hintEl.innerHTML = "⏳ Aguarde, processando...";
-                return;
-            }
-            
-            if (!ws || ws.readyState !== WebSocket.OPEN) {
-                hintEl.innerHTML = "❌ Sem conexão. Aguarde...";
-                return;
-            }
-            
-            try {
-                if (!mediaStream) {
-                    mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                }
-                
-                mediaRecorder = new MediaRecorder(mediaStream);
-                audioChunks = [];
-                
-                mediaRecorder.ondataavailable = (event) => {
-                    if (event.data.size > 0) {
-                        audioChunks.push(event.data);
-                    }
-                };
-                
-                mediaRecorder.onstop = async () => {
-                    const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-                    const reader = new FileReader();
-                    
-                    reader.onloadend = () => {
-                        const base64Audio = reader.result.split(',')[1];
-                        
-                        if (ws && ws.readyState === WebSocket.OPEN) {
-                            isProcessing = true;
-                            statusDot.className = "status-dot processing";
-                            statusText.textContent = "🔄 Processando...";
-                            hintEl.innerHTML = "🔄 Traduzindo...";
-                            
-                            ws.send(JSON.stringify({
-                                type: "audio",
-                                data: base64Audio
-                            }));
-                        }
-                    };
-                    
-                    reader.readAsDataURL(audioBlob);
-                };
-                
-                mediaRecorder.start();
-                isRecording = true;
-                micBtn.classList.add('active');
-                statusDot.className = "status-dot listening";
-                statusText.textContent = "🔴 Ouvindo... Fale agora";
-                hintEl.innerHTML = "🔴 Gravando... Solte para traduzir";
-                
-            } catch (err) {
-                console.error("Erro ao acessar microfone:", err);
-                hintEl.innerHTML = "❌ Erro no microfone. Verifique permissões.";
-                statusText.textContent = "Erro no microfone";
-            }
-        }
-        
-        function stopRecording() {
-            if (mediaRecorder && isRecording) {
-                mediaRecorder.stop();
-                isRecording = false;
-                micBtn.classList.remove('active');
-                
-                if (!isProcessing) {
-                    statusDot.className = "status-dot connected";
-                    statusText.textContent = "Conectado. Pronto para traduzir!";
-                    hintEl.innerHTML = "🔴 Segure para falar";
-                } else {
-                    hintEl.innerHTML = "🔄 Traduzindo...";
-                }
-            }
-        }
-        
-        // ============================================
-        // EVENTOS DO BOTÃO (clique + toque)
-        // ============================================
-        micBtn.onmousedown = startRecording;
-        micBtn.onmouseup = stopRecording;
-        micBtn.onmouseleave = stopRecording;
-        
-        micBtn.ontouchstart = (e) => {
-            e.preventDefault();
-            startRecording();
-        };
-        
-        micBtn.ontouchend = (e) => {
-            e.preventDefault();
-            stopRecording();
-        };
-        
-        // ============================================
-        // INICIALIZAÇÃO
-        // ============================================
-        function init() {
-            console.log("🚀 Iniciando Uber Translator (1 celular)");
-            console.log(`🌐 Backend: ${BACKEND_URL}`);
-            
-            connectWebSocket();
-            
-            // Verificar permissão de microfone ao carregar
-            navigator.mediaDevices.getUserMedia({ audio: true })
-                .then(stream => {
-                    mediaStream = stream;
-                    console.log("✅ Microfone acessível");
-                })
-                .catch(err => {
-                    console.error("❌ Erro no microfone:", err);
-                    hintEl.innerHTML = "❌ Sem acesso ao microfone. Verifique permissões.";
-                    statusText.textContent = "Sem microfone";
-                });
-        }
-        
-        init();
-    </script>
+<head>
+
+  <meta charset="UTF-8" />
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  />
+
+  <title>
+    Tradutor IA Tempo Real
+  </title>
+
+  <link rel="stylesheet" href="style.css" />
+
+</head>
+
+<body>
+
+  <div class="background"></div>
+
+  <div class="app">
+
+    <!-- TOPO -->
+
+    <header class="header">
+
+      <div class="logo">
+
+        🌎
+
+      </div>
+
+      <h1>
+        Tradutor IA
+      </h1>
+
+      <p>
+        Conversa Automática PT ↔ EN
+      </p>
+
+    </header>
+
+    <!-- STATUS -->
+
+    <section class="status-card">
+
+      <div class="status-left">
+
+        <div
+          class="mic-led"
+          id="micLed"
+        ></div>
+
+        <span id="statusText">
+          Sistema parado
+        </span>
+
+      </div>
+
+      <div
+        class="live-badge"
+        id="liveBadge"
+      >
+        LIVE
+      </div>
+
+    </section>
+
+    <!-- VU -->
+
+    <section class="vu-card">
+
+      <div class="vu-meter">
+
+        <div class="vu-bar"></div>
+        <div class="vu-bar"></div>
+        <div class="vu-bar"></div>
+        <div class="vu-bar"></div>
+        <div class="vu-bar"></div>
+        <div class="vu-bar"></div>
+        <div class="vu-bar"></div>
+        <div class="vu-bar"></div>
+        <div class="vu-bar"></div>
+        <div class="vu-bar"></div>
+        <div class="vu-bar"></div>
+        <div class="vu-bar"></div>
+
+      </div>
+
+    </section>
+
+    <!-- BOTÕES -->
+
+    <section class="buttons">
+
+      <button
+        id="startBtn"
+        class="start-btn"
+      >
+        ▶ Iniciar Conversa
+      </button>
+
+      <button
+        id="stopBtn"
+        class="stop-btn"
+      >
+        ⏹ Finalizar Conversa
+      </button>
+
+    </section>
+
+    <!-- ORIGINAL -->
+
+    <section class="card">
+
+      <div class="card-title">
+
+        📝 Voz Detectada
+
+      </div>
+
+      <div
+        class="card-content"
+        id="originalText"
+      >
+
+        Aguardando conversa...
+
+      </div>
+
+    </section>
+
+    <!-- TRADUÇÃO -->
+
+    <section class="card">
+
+      <div class="card-title">
+
+        🌐 Tradução
+
+      </div>
+
+      <div
+        class="card-content"
+        id="translatedText"
+      >
+
+        Tradução aparecerá aqui...
+
+      </div>
+
+    </section>
+
+  </div>
+
+  <script src="script.js"></script>
+
 </body>
+
 </html>
